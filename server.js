@@ -21,10 +21,20 @@ console.log("Hello");
 require("dotenv").config();
 
 // MongoDB Connection
+// mongoose
+//   .connect(process.env.MONGODB_URI)
+//   .then(() => console.log("✅ MongoDB connected"))
+//   .catch((error) => console.log("❌ MongoDB connection error:", error));
+
 mongoose
-  .connect(process.env.MONGODB_URI)
-  .then(() => console.log("✅ MongoDB connected"))
-  .catch((error) => console.log("❌ MongoDB connection error:", error));
+  .connect(process.env.MONGODB_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+    serverSelectionTimeoutMS: 5000,
+    connectTimeoutMS: 10000,
+  })
+  .then(() => console.log("✅ MongoDB connected successfully"))
+  .catch((error) => console.log("❌ MongoDB connection error:", error.message, error.stack));
 
 const app = express();
 
