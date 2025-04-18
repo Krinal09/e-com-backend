@@ -39,6 +39,7 @@ mongoose
 const app = express();
 
 // CORS Configuration
+console.log("CORS_ORIGIN:", process.env.CORS_ORIGIN);
 app.use(
   cors({
     origin: process.env.CORS_ORIGIN,
