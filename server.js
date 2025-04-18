@@ -21,11 +21,10 @@ require("dotenv").config();
 // MongoDB Connection
 mongoose
   .connect(process.env.MONGODB_URI)
-  .then(() => console.log("MongoDB connected"))
-  .catch((error) => console.log("MongoDB connection error:", error));
+  .then(() => console.log("✅ MongoDB connected"))
+  .catch((error) => console.log("❌ MongoDB connection error:", error));
 
 const app = express();
-const PORT = process.env.PORT || 5000;
 
 // CORS Configuration
 app.use(
@@ -60,11 +59,12 @@ app.use("/api/shop/search", shopSearchRouter);
 app.use("/api/shop/reviews", shopReviewRouter);
 app.use("/api/common", commonFeatureRouter);
 
-app.get('/env-test', (req, res) => {
+// Env check route (optional for testing)
+app.get("/env-test", (req, res) => {
   res.json({
     mongodbUri: process.env.MONGODB_URI,
     corsOrigin: process.env.CORS_ORIGIN,
-    nodeEnv: process.env.NODE_ENV
+    nodeEnv: process.env.NODE_ENV,
   });
 });
 
@@ -74,8 +74,5 @@ app.use((err, req, res, next) => {
   res.status(500).json({ message: "Something went wrong!" });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV}`);
-});
+// ✅ Export app for Vercel (do NOT call app.listen)
+module.exports = app;
