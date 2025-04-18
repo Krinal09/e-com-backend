@@ -61,6 +61,8 @@ app.use("/api/shop/search", shopSearchRouter);
 app.use("/api/shop/reviews", shopReviewRouter);
 app.use("/api/common", commonFeatureRouter);
 
+app.get('/', (req, res) => res.json({ message: 'Welcome to the E-commerce API' }));
+
 app.get('/health', (req, res) => res.json({ status: 'OK', message: 'Backend is running' }));
 
 // Env check route (optional for testing)
