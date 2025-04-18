@@ -16,6 +16,8 @@ const shopReviewRouter = require("./routes/shop/review-routes");
 
 const commonFeatureRouter = require("./routes/common/feature-routes");
 
+console.log("Hello");
+
 require("dotenv").config();
 
 // MongoDB Connection
