@@ -7,34 +7,38 @@ const registerUser = async (req, res) => {
   const { userName, email, password } = req.body;
 
   try {
+    console.log("Starting registration for email:", email);
+    console.time('findOne');
     const checkUser = await User.findOne({ email });
+    console.timeEnd('findOne');
     if (checkUser)
       return res.json({
         success: false,
         message: "User Already exists with the same email! Please try again",
       });
 
-    const hashPassword = await bcrypt.hash(password, 12);
-    const newUser = new User({
-      userName,
-      email,
-      password: hashPassword,
-    });
+    console.time('hash');
+    const hashPassword = await bcrypt.hash(password, 10);
+    console.timeEnd('hash');
 
+    console.time('save');
+    const newUser = new User({ userName, email, password: hashPassword });
     await newUser.save();
-    res.status(200).json({
+    console.timeEnd('save');
+
+    console.log("Registration successful for email:", email);
+    res.status(201).json({
       success: true,
       message: "Registration successful",
     });
   } catch (e) {
-    console.log(e);
+    console.error("Registration error:", e.message, e.stack);
     res.status(500).json({
       success: false,
-      message: "Some error occured",
+      message: e.message || "Some error occurred",
     });
   }
 };
-
 //login
 const loginUser = async (req, res) => {
   const { email, password } = req.body;
