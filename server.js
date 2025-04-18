@@ -61,6 +61,8 @@ app.use("/api/shop/search", shopSearchRouter);
 app.use("/api/shop/reviews", shopReviewRouter);
 app.use("/api/common", commonFeatureRouter);
 
+app.get('/health', (req, res) => res.json({ status: 'OK', message: 'Backend is running' }));
+
 // Env check route (optional for testing)
 app.get("/env-test", (req, res) => {
   res.json({
