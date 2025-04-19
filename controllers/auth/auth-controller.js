@@ -256,7 +256,7 @@ const authMiddleware = async (req, res, next) => {
     });
 
   try {
-    const decoded = jwt.verify(token, "CLIENT_SECRET_KEY");
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || "krinal_123");
     req.user = decoded;
     next();
   } catch (error) {
@@ -278,7 +278,7 @@ const checkAuth = async (req, res) => {
   }
 
   try {
-    const decoded = jwt.verify(token, "CLIENT_SECRET_KEY");
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || "krinal_123");
     const user = await User.findById(decoded.id).select("-password");
     
     if (!user) {
