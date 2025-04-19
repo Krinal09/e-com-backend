@@ -1,258 +1,140 @@
-// // const paypal = require("../../helpers/paypal");
-// const razorpay = require("../../helpers/razorpay");
-// const Order = require("../../models/Order");
-// const Cart = require("../../models/Cart");
-// const Product = require("../../models/Product");
-
-// const createOrder = async (req, res) => {
-//   try {
-//     const {
-//       userId,
-//       cartItems,
-//       addressInfo,
-//       orderStatus = "pending",
-//       paymentMethod = "paypal",
-//       paymentStatus = "pending",
-//       totalAmount,
-//       orderDate = new Date(),
-//       orderUpdateDate = new Date(),
-//       cartId,
-//     } = req.body;
-
-//     const create_payment_json = {
-//       intent: "sale",
-//       payer: {
-//         payment_method: "paypal",
-//       },
-//       redirect_urls: {
-//         return_url: "http://localhost:5173/shop/paypal-return",
-//         cancel_url: "http://localhost:5173/shop/paypal-cancel",
-//       },
-//       transactions: [
-//         {
-//           item_list: {
-//             items: cartItems.map((item) => ({
-//               name: item.title,
-//               sku: item.productId,
-//               price: item.price.toFixed(2),
-//               currency: "INR",
-//               quantity: item.quantity,
-//             })),
-//           },
-//           amount: {
-//             currency: "INR",
-//             total: totalAmount.toFixed(2),
-//           },
-//           description: "E-commerce Order Payment",
-//         },
-//       ],
-//     };
-
-//     paypal.payment.create(create_payment_json, async (error, paymentInfo) => {
-//       if (error) {
-//         console.error("PayPal create payment error:", error);
-//         return res.status(500).json({
-//           success: false,
-//           message: "Failed to create PayPal payment",
-//         });
-//       }
-
-//       const approvalURL = paymentInfo.links.find(
-//         (link) => link.rel === "approval_url"
-//       )?.href;
-
-//       const newOrder = new Order({
-//         userId,
-//         cartId,
-//         cartItems,
-//         addressInfo,
-//         orderStatus,
-//         paymentMethod,
-//         paymentStatus,
-//         totalAmount,
-//         orderDate,
-//         orderUpdateDate,
-//         paymentId: "",
-//         payerId: "",   
-//       });
-
-//       await newOrder.save();
-
-//       res.status(201).json({
-//         success: true,
-//         approvalURL,
-//         orderId: newOrder._id,
-//       });
-//     });
-//   } catch (err) {
-//     console.error("Create order error:", err);
-//     res.status(500).json({
-//       success: false,
-//       message: "An error occurred while creating the order.",
-//     });
-//   }
-// };
-
-// const capturePayment = async (req, res) => {
-//   try {
-//     const { paymentId, payerId, orderId } = req.body;
-
-//     const order = await Order.findById(orderId);
-//     if (!order) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "Order not found",
-//       });
-//     }
-
-//     // Execute PayPal payment (optional: validate with PayPal API)
-//     const execute_payment_json = {
-//       payer_id: payerId,
-//     };
-
-//     paypal.payment.execute(paymentId, execute_payment_json, async (err, payment) => {
-//       if (err) {
-//         console.error("Payment execution error:", err.response);
-//         return res.status(500).json({
-//           success: false,
-//           message: "Failed to capture PayPal payment",
-//         });
-//       }
-
-//       // Update order status and stock
-//       order.paymentStatus = "paid";
-//       order.orderStatus = "confirmed";
-//       order.paymentId = paymentId;
-//       order.payerId = payerId;
-
-//       for (let item of order.cartItems) {
-//         const product = await Product.findById(item.productId);
-//         if (!product || product.totalStock < item.quantity) {
-//           return res.status(400).json({
-//             success: false,
-//             message: `Not enough stock for ${item.title}`,
-//           });
-//         }
-
-//         product.totalStock -= item.quantity;
-//         await product.save();
-//       }
-
-//       if (order.cartId) {
-//         await Cart.findByIdAndDelete(order.cartId);
-//       }
-
-//       await order.save();
-
-//       res.status(200).json({
-//         success: true,
-//         message: "Payment captured and order confirmed",
-//         data: order,
-//       });
-//     });
-//   } catch (err) {
-//     console.error("Capture payment error:", err);
-//     res.status(500).json({
-//       success: false,
-//       message: "An error occurred while capturing payment.",
-//     });
-//   }
-// };
-
-// const getAllOrdersByUser = async (req, res) => {
-//   try {
-//     const { userId } = req.params;
-//     const orders = await Order.find({ userId });
-
-//     res.status(200).json({
-//       success: true,
-//       data: orders,
-//     });
-//   } catch (err) {
-//     console.error(err);
-//     res.status(500).json({
-//       success: false,
-//       message: "Failed to fetch orders",
-//     });
-//   }
-// };
-
-// const getOrderDetails = async (req, res) => {
-//   try {
-//     const { id } = req.params;
-//     const order = await Order.findById(id);
-
-//     if (!order) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "Order not found",
-//       });
-//     }
-
-//     res.status(200).json({
-//       success: true,
-//       data: order,
-//     });
-//   } catch (err) {
-//     console.error(err);
-//     res.status(500).json({
-//       success: false,
-//       message: "Failed to fetch order details",
-//     });
-//   }
-// };
-
-// module.exports = {
-//   createOrder,
-//   capturePayment,
-//   getAllOrdersByUser,
-//   getOrderDetails,
-// };
-
-
 require("dotenv").config();
 const razorpay = require("../../helpers/razorpay");
 const Order = require("../../models/Order");
 const Cart = require("../../models/Cart");
 const Product = require("../../models/Product");
-const crypto = require("crypto");
+const mongoose = require("mongoose");
 
 const createOrder = async (req, res) => {
   try {
-    const { userId, items, totalAmount, shippingAddress } = req.body;
+    const {
+      userId,
+      cartId,
+      cartItems,
+      addressInfo,
+      paymentMethod,
+      totalAmount,
+    } = req.body;
 
-    if (!userId || !items || !totalAmount || !shippingAddress) {
+    // Validate required fields
+    if (
+      !userId ||
+      userId === null ||
+      userId === undefined ||
+      !mongoose.Types.ObjectId.isValid(userId) ||
+      !paymentMethod ||
+      !totalAmount ||
+      typeof totalAmount !== "number" ||
+      totalAmount <= 0
+    ) {
       return res.status(400).json({
         success: false,
-        message: "Missing required fields",
+        message: "Valid user ID, payment method, and total amount are required",
+      });
+    }
+
+    // Validate cart items
+    if (!Array.isArray(cartItems) || cartItems.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Cart items are required",
+      });
+    }
+
+    // Validate address
+    if (
+      !addressInfo ||
+      !addressInfo.address ||
+      !addressInfo.city ||
+      !addressInfo.pincode ||
+      !addressInfo.phone
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Complete shipping address is required",
       });
     }
 
     // Create order
     const order = new Order({
       userId,
-      items,
+      cartId,
+      cartItems,
+      addressInfo,
+      paymentMethod,
+      paymentStatus: "pending",
+      orderStatus: "pending",
       totalAmount,
-      shippingAddress,
-      status: "pending",
     });
 
-    // Save order
     await order.save();
 
-    // Clear user's cart
-    await Cart.findOneAndUpdate(
-      { userId },
-      { $set: { items: [] } }
-    );
+    // Clear cart items used in the order
+    if (cartId) {
+      const cart = await Cart.findById(cartId);
+      if (cart) {
+        // Filter out the items that were ordered
+        cart.items = cart.items.filter((cartItem) =>
+          !cartItems.some((orderItem) => orderItem.productId.toString() === cartItem.productId.toString())
+        );
+        await cart.save();
+      }
+    }
 
-    res.status(201).json({
-      success: true,
-      data: order,
+    // If COD, return success immediately
+    if (paymentMethod === "cod") {
+      return res.status(200).json({
+        success: true,
+        message: "Order placed successfully with COD",
+        data: order,
+      });
+    }
+
+    // For Razorpay, proceed with payment
+    if (paymentMethod === "razorpay") {
+      try {
+        const options = {
+          amount: Math.round(totalAmount * 100), // Convert to paise
+          currency: "INR",
+          receipt: order._id.toString(),
+          payment_capture: 1,
+        };
+
+        const razorpayOrder = await razorpay.orders.create(options);
+
+        // Update order with Razorpay order ID
+        order.razorpayOrderId = razorpayOrder.id;
+        await order.save();
+
+        return res.status(200).json({
+          success: true,
+          message: "Razorpay order created",
+          data: {
+            order: order,
+            razorpayOrder: razorpayOrder,
+          },
+        });
+      } catch (error) {
+        console.error("Razorpay order creation error:", error);
+        // Update order status to failed
+        order.paymentStatus = "failed";
+        await order.save();
+
+        return res.status(500).json({
+          success: false,
+          message: "Failed to create Razorpay order",
+          error: process.env.NODE_ENV === "development" ? error.message : undefined,
+        });
+      }
+    }
+
+    return res.status(400).json({
+      success: false,
+      message: "Invalid payment method",
     });
   } catch (error) {
     console.error("Create order error:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Failed to create order",
       error: process.env.NODE_ENV === "development" ? error.message : undefined,
@@ -264,17 +146,17 @@ const fetchUserOrders = async (req, res) => {
   try {
     const { userId } = req.params;
 
-    if (!userId) {
+    if (!userId || userId === null || userId === undefined || !mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({
         success: false,
-        message: "User ID is required",
+        message: "Valid user ID is required",
       });
     }
 
     const orders = await Order.find({ userId })
       .sort({ createdAt: -1 })
       .populate({
-        path: "items.productId",
+        path: "cartItems.productId",
         select: "title image price salePrice",
       });
 
@@ -297,16 +179,16 @@ const updateOrderStatus = async (req, res) => {
     const { orderId } = req.params;
     const { status } = req.body;
 
-    if (!orderId || !status) {
+    if (!orderId || !status || !mongoose.Types.ObjectId.isValid(orderId)) {
       return res.status(400).json({
         success: false,
-        message: "Order ID and status are required",
+        message: "Valid order ID and status are required",
       });
     }
 
     const order = await Order.findByIdAndUpdate(
       orderId,
-      { status },
+      { orderStatus: status },
       { new: true }
     ).populate({
       path: "items.productId",
@@ -334,8 +216,47 @@ const updateOrderStatus = async (req, res) => {
   }
 };
 
+const getOrderDetails = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid order ID is required",
+      });
+    }
+
+    const order = await Order.findById(id)
+      .populate({
+        path: "cartItems.productId",
+        select: "title image price salePrice description",
+      });
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: order,
+    });
+  } catch (error) {
+    console.error("Get order details error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch order details",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
 module.exports = {
   createOrder,
   fetchUserOrders,
   updateOrderStatus,
+  getOrderDetails,
 };
