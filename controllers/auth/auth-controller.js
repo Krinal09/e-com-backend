@@ -120,7 +120,7 @@ const loginUser = async (req, res) => {
         email: checkUser.email,
         userName: checkUser.userName,
       },
-      process.env.JWT_SECRET || "CLIENT_SECRET_KEY", // use env secret in production
+      process.env.JWT_SECRET || "krinal_123", // use env secret in production
       { expiresIn: "60m" }
     );
 
