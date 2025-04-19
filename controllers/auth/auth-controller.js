@@ -126,9 +126,9 @@ const loginUser = async (req, res) => {
 
     res.cookie("token", token, {
       httpOnly: true,
-      secure: true,         // ✅ Needed for HTTPS (Vercel)
-      sameSite: "None",     // ✅ Required for cross-origin cookies
-      maxAge: 60 * 60 * 1000, // optional: 1 hour
+      secure: process.env.NODE_ENV === "production", // true on Vercel
+      sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
+      maxAge: 60 * 60 * 1000, // 1 hour
     });
 
     res.json({
