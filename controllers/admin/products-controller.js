@@ -1,5 +1,6 @@
 const { imageUploadUtil } = require("../../helpers/cloudinary");
 const Product = require("../../models/Product");
+const ProductReview = require("../../models/Review");
 
 const handleImageUpload = async (req, res) => {
   try {
@@ -68,15 +69,37 @@ const addProduct = async (req, res) => {
 const fetchAllProducts = async (req, res) => {
   try {
     const listOfProducts = await Product.find({});
+    
+    // Get reviews for each product
+    const productsWithReviews = await Promise.all(
+      listOfProducts.map(async (product) => {
+        const reviews = await ProductReview.find({ productId: product._id });
+        
+        // Calculate average review
+        const averageReview = reviews.length > 0
+          ? parseFloat((reviews.reduce((sum, review) => sum + review.reviewValue, 0) / reviews.length).toFixed(1))
+          : 0;
+
+        // Update product's average review in database
+        await Product.findByIdAndUpdate(product._id, { averageReview });
+
+        return {
+          ...product.toObject(),
+          reviews,
+          averageReview
+        };
+      })
+    );
+
     res.status(200).json({
       success: true,
-      data: listOfProducts,
+      data: productsWithReviews,
     });
   } catch (e) {
     console.log(e);
     res.status(500).json({
       success: false,
-      message: "Error occured",
+      message: "Error occurred",
     });
   }
 };
