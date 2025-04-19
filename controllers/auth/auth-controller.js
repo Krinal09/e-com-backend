@@ -41,6 +41,57 @@ const registerUser = async (req, res) => {
 };
 
 //login
+// const loginUser = async (req, res) => {
+//   const { email, password } = req.body;
+
+//   try {
+//     const checkUser = await User.findOne({ email });
+//     if (!checkUser)
+//       return res.json({
+//         success: false,
+//         message: "User doesn't exists! Please register first",
+//       });
+
+//     const checkPasswordMatch = await bcrypt.compare(
+//       password,
+//       checkUser.password
+//     );
+//     if (!checkPasswordMatch)
+//       return res.json({
+//         success: false,
+//         message: "Incorrect password! Please try again",
+//       });
+
+//     const token = jwt.sign(
+//       {
+//         id: checkUser._id,
+//         role: checkUser.role,
+//         email: checkUser.email,
+//         userName: checkUser.userName,
+//       },
+//       "CLIENT_SECRET_KEY",
+//       { expiresIn: "60m" }
+//     );
+
+//     res.cookie("token", token, { httpOnly: true, secure: false }).json({
+//       success: true,
+//       message: "Logged in successfully",
+//       user: {
+//         email: checkUser.email,
+//         role: checkUser.role,
+//         id: checkUser._id,
+//         userName: checkUser.userName,
+//       },
+//     });
+//   } catch (e) {
+//     console.log(e);
+//     res.status(500).json({
+//       success: false,
+//       message: "Some error occured",
+//     });
+//   }
+// };
+
 const loginUser = async (req, res) => {
   const { email, password } = req.body;
 
@@ -49,7 +100,7 @@ const loginUser = async (req, res) => {
     if (!checkUser)
       return res.json({
         success: false,
-        message: "User doesn't exists! Please register first",
+        message: "User doesn't exist! Please register first",
       });
 
     const checkPasswordMatch = await bcrypt.compare(
@@ -69,11 +120,18 @@ const loginUser = async (req, res) => {
         email: checkUser.email,
         userName: checkUser.userName,
       },
-      "CLIENT_SECRET_KEY",
+      process.env.JWT_SECRET || "CLIENT_SECRET_KEY", // use env secret in production
       { expiresIn: "60m" }
     );
 
-    res.cookie("token", token, { httpOnly: true, secure: false }).json({
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: true,         // ✅ Needed for HTTPS (Vercel)
+      sameSite: "None",     // ✅ Required for cross-origin cookies
+      maxAge: 60 * 60 * 1000, // optional: 1 hour
+    });
+
+    res.json({
       success: true,
       message: "Logged in successfully",
       user: {
@@ -87,10 +145,11 @@ const loginUser = async (req, res) => {
     console.log(e);
     res.status(500).json({
       success: false,
-      message: "Some error occured",
+      message: "Some error occurred",
     });
   }
 };
+
 
 //logout
 const logoutUser = (req, res) => {
