@@ -3,15 +3,16 @@ const FeatureImage = require("../../models/FeatureImage");
 const getFeatureImages = async (req, res) => {
   try {
     const images = await FeatureImage.find().sort({ createdAt: -1 });
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
+      message: "Feature images fetched successfully",
       data: images,
     });
   } catch (error) {
-    console.error("Error fetching feature images:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: "Failed to fetch feature images",
+      message: "Error fetching feature images",
+      error: error.message,
     });
   }
 };
@@ -20,15 +21,16 @@ const addFeatureImage = async (req, res) => {
   try {
     const { image } = req.body;
     const newImage = await FeatureImage.create({ image });
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
+      message: "Feature image added successfully",
       data: newImage,
     });
   } catch (error) {
-    console.error("Error adding feature image:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: "Failed to add feature image",
+      message: "Error adding feature image",
+      error: error.message,
     });
   }
 };
