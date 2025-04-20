@@ -7,91 +7,35 @@ const registerUser = async (req, res) => {
   const { userName, email, password } = req.body;
 
   try {
-    console.log("Starting registration for email:", email);
-    console.time('findOne');
     const checkUser = await User.findOne({ email });
-    console.timeEnd('findOne');
     if (checkUser)
       return res.json({
         success: false,
         message: "User Already exists with the same email! Please try again",
       });
 
-    console.time('hash');
-    const hashPassword = await bcrypt.hash(password, 10);
-    console.timeEnd('hash');
+    const hashPassword = await bcrypt.hash(password, 12);
+    const newUser = new User({
+      userName,
+      email,
+      password: hashPassword,
+    });
 
-    console.time('save');
-    const newUser = new User({ userName, email, password: hashPassword });
     await newUser.save();
-    console.timeEnd('save');
-
-    console.log("Registration successful for email:", email);
-    res.status(201).json({
+    res.status(200).json({
       success: true,
       message: "Registration successful",
     });
   } catch (e) {
-    console.error("Registration error:", e.message, e.stack);
+    console.log(e);
     res.status(500).json({
       success: false,
-      message: e.message || "Some error occurred",
+      message: "Some error occured",
     });
   }
 };
 
 //login
-// const loginUser = async (req, res) => {
-//   const { email, password } = req.body;
-
-//   try {
-//     const checkUser = await User.findOne({ email });
-//     if (!checkUser)
-//       return res.json({
-//         success: false,
-//         message: "User doesn't exists! Please register first",
-//       });
-
-//     const checkPasswordMatch = await bcrypt.compare(
-//       password,
-//       checkUser.password
-//     );
-//     if (!checkPasswordMatch)
-//       return res.json({
-//         success: false,
-//         message: "Incorrect password! Please try again",
-//       });
-
-//     const token = jwt.sign(
-//       {
-//         id: checkUser._id,
-//         role: checkUser.role,
-//         email: checkUser.email,
-//         userName: checkUser.userName,
-//       },
-//       "CLIENT_SECRET_KEY",
-//       { expiresIn: "60m" }
-//     );
-
-//     res.cookie("token", token, { httpOnly: true, secure: false }).json({
-//       success: true,
-//       message: "Logged in successfully",
-//       user: {
-//         email: checkUser.email,
-//         role: checkUser.role,
-//         id: checkUser._id,
-//         userName: checkUser.userName,
-//       },
-//     });
-//   } catch (e) {
-//     console.log(e);
-//     res.status(500).json({
-//       success: false,
-//       message: "Some error occured",
-//     });
-//   }
-// };
-
 const loginUser = async (req, res) => {
   const { email, password } = req.body;
 
@@ -100,7 +44,7 @@ const loginUser = async (req, res) => {
     if (!checkUser)
       return res.json({
         success: false,
-        message: "User doesn't exist! Please register first",
+        message: "User doesn't exists! Please register first",
       });
 
     const checkPasswordMatch = await bcrypt.compare(
@@ -120,18 +64,11 @@ const loginUser = async (req, res) => {
         email: checkUser.email,
         userName: checkUser.userName,
       },
-      process.env.JWT_SECRET || "krinal_123", // use env secret in production
+      "CLIENT_SECRET_KEY",
       { expiresIn: "60m" }
     );
 
-    res.cookie("token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production", // true on Vercel
-      sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
-      maxAge: 60 * 60 * 1000, // 1 hour
-    });
-
-    res.json({
+    res.cookie("token", token, { httpOnly: true, secure: false }).json({
       success: true,
       message: "Logged in successfully",
       user: {
@@ -145,11 +82,10 @@ const loginUser = async (req, res) => {
     console.log(e);
     res.status(500).json({
       success: false,
-      message: "Some error occurred",
+      message: "Some error occured",
     });
   }
 };
-
 
 //logout
 const logoutUser = (req, res) => {
@@ -161,34 +97,45 @@ const logoutUser = (req, res) => {
 
 // update user profile
 const updateUserProfile = async (req, res) => {
-  const { userName, profileImage } = req.body;
-  const userId = req.user.id;
-
   try {
+    const { userName, profileImage } = req.body;
+    const userId = req.user._id;
+
+    const updateData = {};
+    if (userName) updateData.userName = userName;
+    if (profileImage) updateData.profileImage = profileImage;
+
     const user = await User.findByIdAndUpdate(
       userId,
-      { userName, profileImage },
-      { new: true }
+      updateData,
+      { new: true, runValidators: true }
     );
 
     if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
+      return res.status(404).json({ 
+        success: false, 
+        message: "User not found" 
+      });
     }
 
     res.status(200).json({
       success: true,
       message: "Profile updated successfully",
       user: {
+        id: user._id,
         userName: user.userName,
         email: user.email,
         role: user.role,
-        id: user._id,
         profileImage: user.profileImage,
       },
     });
   } catch (err) {
-    console.log(err);
-    res.status(500).json({ success: false, message: "Failed to update profile" });
+    console.error("Profile update error:", err);
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to update profile",
+      error: err.message 
+    });
   }
 };
 
@@ -248,21 +195,32 @@ const changePassword = async (req, res) => {
 
 //auth middleware
 const authMiddleware = async (req, res, next) => {
-  const token = req.cookies.token;
-  if (!token)
-    return res.status(401).json({
-      success: false,
-      message: "Unauthorised user!",
-    });
-
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || "krinal_123");
-    req.user = decoded;
+    const token = req.cookies.token;
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: "No authentication token found",
+      });
+    }
+
+    const decoded = jwt.verify(token, "CLIENT_SECRET_KEY");
+    const user = await User.findById(decoded.id);
+    
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    req.user = user;
     next();
   } catch (error) {
-    res.status(401).json({
+    console.error("Auth middleware error:", error);
+    return res.status(401).json({
       success: false,
-      message: "Unauthorised user!",
+      message: "Invalid or expired token",
     });
   }
 };
@@ -278,7 +236,7 @@ const checkAuth = async (req, res) => {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || "krinal_123");
+    const decoded = jwt.verify(token, "CLIENT_SECRET_KEY");
     const user = await User.findById(decoded.id).select("-password");
     
     if (!user) {
